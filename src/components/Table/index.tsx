@@ -238,7 +238,7 @@ export const Table = () => {
                                             w={100}
                                             autoFocus
                                             onBlur={(e) => {
-                                                setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: val === "*" ? +e.target.value * 2 + (data[key]?.bonus || 0) : e.target.value + (data[key]?.bonus || 0) } } });
+                                                setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: val === "*" ? +e.target.value * 2 + (data[key]?.bonus || 0) : +e.target.value + (data[key]?.bonus || 0) } } });
                                             }}
                                         />
                                     </Group>}
