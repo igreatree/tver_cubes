@@ -2,9 +2,9 @@ import { Grid, Button, Group, NumberInput, CloseButton, Image } from "@mantine/c
 import { useStore } from "../../store";
 import { useEffect, useState } from "react";
 import HandIcon from "../../assets/icons/hand.svg";
+import EditIcon from "../../assets/icons/edit.svg";
 import styles from './table.module.scss';
 
-const firstHouse = ["1", "2", "3", "4", "5", "6"];
 const rules: { [key: string]: { type: string, values: { [key: string]: string | number }, bonus?: number } } = {
     "1": {
         type: "first",
@@ -86,56 +86,70 @@ export const Table = () => {
     const [data, setData] = useState(rules);
     const [firstHouseData, setFirstHouseData] = useState<{ [key: string]: string | number }>({});
     const [finishData, setFinishData] = useState<{ [key: string]: string | number }>({});
+    const [countTotal, setCountTotal] = useState(0);
+    const [isSecondHouseOpened, setIsSecondHouseOpened] = useState(false);
     const span = 12 / (players.length + 1);
-    const [secondOpened, setSecondOpened] = useState(false);
     useEffect(() => {
+        let ct = 0;
         players.forEach((player) => {
             let res = 0;
-            let closed = true;
-            let count = 0;
-            for (let i = 0; i < firstHouse.length; i++) {
-                const current = data[firstHouse[i]].values[player];
+            let c = 0;
+            const fh = Object.values(data).filter(i => i.type === "first");
+            for (let i = 0; i < fh.length; i++) {
+                const current = fh[i].values[player];
                 if (typeof +current === "number" && !isNaN(+current)) {
                     res += +current;
-                    count++;
+                    c++;
+                    ct++;
                 } else if (current === "X") {
-                    res += 0;
-                    count++;
-                } else {
-                    closed = false;
+                    c++;
+                    ct++;
                 }
             };
-            if (count === 3) setSecondOpened(true);
-            else if (count < 3) setSecondOpened(false)
-            setFirstHouseData((prev) => ({ ...prev, [player]: !closed ? "еще не закрыт" : res < 0 ? res - 50 : res === 0 ? "0" : res }));
+            if (c >= 3) {
+                setIsSecondHouseOpened(true);
+            } else {
+                setIsSecondHouseOpened(false);
+            }
+            const firstHouseValue = res < 0 ? res - 50 : res;
+            setFirstHouseData((prev) => ({ ...prev, [player]: firstHouseValue === 0 ? "0" : firstHouseValue }));
 
-            const all = Object.values(data).filter(i => i.type !== "firstHouse").filter(i => i.type !== "finish");
+            const all = Object.values(data).filter(i => i.type !== "first").filter(i => i.type !== "finish");
             let total = 0;
-            let finished = true;
+
+            total += firstHouseValue
             for (let i = 0; i < all.length; i++) {
                 const current = all[i].values[player];
                 if (typeof +current === "number" && !isNaN(+current)) {
                     total += +current;
-                } else if (current !== "X") {
-                    finished = false;
+                    ct++;
+                } else if (current === "X") {
+                    ct++;
+                } else {
                 }
             };
-            setFinishData((prev) => ({ ...prev, [player]: !finished ? "игра еще идет" : total }));
+            setCountTotal(ct);
+            setFinishData((prev) => ({ ...prev, [player]: total === 0 ? "0" : total }));
         });
     }, [data]);
 
     useEffect(() => {
-        let winner = { score: 0, name: "" };
-        if (Object.values(finishData).filter(v => v !== "игра еще идет").length === players.length) {
-            Object.entries(finishData).forEach(([key, value]) => {
-                if (+value > winner.score) {
-                    winner.score = +value;
-                    winner.name = key;
+        console.log({ countTotal })
+        if (countTotal === 15 * players.length) {
+            let winner = { score: 0, name: "" };
+            if (Object.values(finishData).length === players.length) {
+                Object.entries(finishData).forEach(([key, value]) => {
+                    if (+value > winner.score) {
+                        winner.score = +value;
+                        winner.name = key;
+                    }
+                });
+                if (Object.values(finishData).length === players.length) {
+                    alert(`Победитель - "${winner.name}"!`);
                 }
-            })
-            alert(`Победитель - "${winner.name}"!`);
+            }
         }
-    }, [finishData]);
+    }, [countTotal]);
 
     return (
         <>
@@ -154,22 +168,34 @@ export const Table = () => {
                 ))}
                 {Object.entries(data).map(([key, value]) => (
                     <>
-                        <Grid.Col bg={value.type === "firstHouse" || value.type === "finish" ? "lime" : ""} span={span} key={key}>
+                        <Grid.Col key={key} bg={value.type === "firstHouse" || value.type === "finish" ? "lime" : ""} span={span}>
                             <Group h={36} justify="center">
                                 {key}
                             </Group>
                         </Grid.Col>
-                        {players.map((player, index) => {
+                        {players.map((player) => {
                             const val = value.values[player];
-                            if (val && val !== '+' && val !== '-' && val !== '*') {
-                                return <Grid.Col span={span} key={index}>
+                            if (val && val !== '+' && val !== '-' && val !== '*' && val !== 'edit') {
+                                return <Grid.Col span={span} key={player}>
                                     <Group mih={36} h="100%" justify="center" align="center" >
                                         {value.values[player]}
-                                        {value.type === 'second' && value.values[player] !== "X" && <CloseButton color="red" onClick={() => setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: 'X' } } })} />}
+                                        {/* {value.type === 'second' && value.values[player] !== "X" && <CloseButton color="red" onClick={() => setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: 'X' } } })} />} */}
+                                        {<Button size="xs" variant="transparent" onClick={() => setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: 'edit' } } })} ><Image w={20} src={EditIcon} /></Button>}
+                                    </Group>
+                                </Grid.Col>
+                            } else if (val === 'edit') {
+                                return <Grid.Col span={span} key={player}>
+                                    <Group mih={36} h="100%" justify="center" align="center" >
+                                        <NumberInput
+                                            w={100}
+                                            onBlur={(e) => {
+                                                setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: e.target.value } } });
+                                            }}
+                                        />
                                     </Group>
                                 </Grid.Col>
                             } else {
-                                return <Grid.Col bg={value.type === "firstHouse" || value.type === "finish" ? "lime" : ""} span={span} key={index}>
+                                return <Grid.Col bg={value.type === "firstHouse" || value.type === "finish" ? "lime" : ""} span={span} key={player}>
                                     {value.type === 'first' && val !== '+' && val !== '-' && <Group justify="center">
                                         <Button
                                             color="lime"
@@ -211,7 +237,7 @@ export const Table = () => {
                                     </Group>}
                                     {value.type === 'second' && val !== '+' && val !== '*' && <Group justify="center">
                                         <Button
-                                            disabled={!secondOpened}
+                                            disabled={!isSecondHouseOpened}
                                             variant="outline"
                                             color="lime"
                                             title="С руки"
@@ -224,14 +250,14 @@ export const Table = () => {
                                         <Button
                                             color="lime"
                                             variant="outline"
-                                            disabled={!secondOpened}
+                                            disabled={!isSecondHouseOpened}
                                             onClick={() => {
                                                 setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: "+" } } });
                                             }}
                                         >
                                             +
                                         </Button>
-                                        <CloseButton disabled={!secondOpened} color="red" onClick={() => setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: 'X' } } })} />
+                                        <CloseButton disabled={!isSecondHouseOpened} color="red" onClick={() => setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: 'X' } } })} />
                                     </Group>}
                                     {value.type === 'second' && (val === '+' || val === '*') && <Group justify="center">
                                         <NumberInput
@@ -245,7 +271,6 @@ export const Table = () => {
                                     {value.type === 'third' && <Group justify="center">
                                         <NumberInput
                                             w={100}
-                                            disabled={!secondOpened}
                                             onBlur={(e) => {
                                                 setData({ ...data, [key]: { ...data[key], values: { ...data[key].values, [player]: e.target.value } } });
                                             }}
